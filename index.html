@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+  body {
+    height: 1200px;
+  }
+
+  form {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    position: absolute;
+    left: 10px;
+    top: 10px;
+  }
+
+  label {
+    display: block;
+  }
+  #colors {
+      margin-top: 80px;
+  }
+  #colors, #tableType {
+      margin-left: 980px;
+  }
+  div {
+    display: flex;
+  }
+
+  .TableData {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 600px;
+  }
+
+  .BubbleData {
+    position: absolute;
+    top: 500px;
+    left: 0;
+    height: 600px;
+  }
+
+  .ChartData {
+    position: absolute;
+    top: 500px;
+    left: 500px;
+    height: 600px;
+  }
+
+</style>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="shemas.js"></script>
+
+<div>
+  <form id="tableType">
+    <label><input type="radio" name="mode" value="grouped"> Grouped</label>
+    <label><input type="radio" name="mode" value="stacked" checked> Stacked</label>
+  </form>
+  <form id="colors">
+    <label><input type="radio" name="category" value="schemeCategory10" checked> 10</label>
+    <label><input type="radio" name="category" value="schemeCategory20" > 20</label>
+    <label><input type="radio" name="category" value="schemeCategory20b" > 20b</label>
+    <label><input type="radio" name="category" value="schemeCategory20c" > 20c</label>
+    <label><input type="radio" name="category" value="Dark" > Dark</label>
+    <label><input type="radio" name="category" value="Bright" > Bright</label>
+  </form>
+</div>
+
+
+<div class="TableData">
+  <svg id="svgBars" width="960" height="500"></svg>
+</div>
+<div class="BubbleData">
+  <svg id="svgBubbles" width="500" height="500"></svg>
+</div>
+<div class="ChartData">
+  <svg id="svgChart" width="960" height="500"></svg>
+</div>
+
+<script src="d3bars.js"></script>
+<script src="d3bubbles.js"></script>
+<script src="d3chart.js"></script>
+
+<script>
+  const MONTHS = ["Januar", "Februar", "März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  const REV_MONTH_MIN = 14000;
+  const REV_MONTH_MAX = 26000;
+
+  let colorMapScheme = 'schemeCategory10';
+  let fileName = 'data.csv';
+
+  function getColorMap(){
+    if( d3[colorMapScheme] )return d3[colorMapScheme];
+    return SHEMA[colorMapScheme];
+  }
+  function changed() {
+
+    if (this.value === "grouped") transitionGrouped();
+    else if(this.value === "stacked") transitionStacked();
+    else {
+      colorMapScheme = this.value;
+      parsedData.colorMap = d3.scaleOrdinal().domain(d3.range(20)).range(getColorMap());
+
+      drawBars();
+      drawBubbles();
+      drawChart();
+    }
+
+  }
+
+  let height, width;
+
+  const parsedData = {
+    rawData: [],
+  };
+
+  function uniqBy(a) {
+    let seen = {};
+    return a.filter(function(item) {
+        return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+    });
+    return seen;
+  }
+
+  function dataRangeFor(data,cntr){
+    let values = [];
+    data.forEach(function(d) {
+      if(d.country === cntr ){
+        values.push(d.value);
+      }
+    });
+    return values;
+  }
+
+  function parseBarData(data){
+    let lastDate = data[0].date.getMonth();
+    let lastCountry = data[0].country;
+
+    let total =0;
+    var list = [];
+    list.push({month: lastDate, country: data[0].country, value: 0});
+    data.forEach((d) => {
+      if ( lastDate === d.date.getMonth()){
+        for( let i =total; i >=0 && list[i].month >= lastDate ; i--){
+          if( list[i].country === d.country){
+            list[i].value += d.value;
+            return;
+          }
+        }
+        list.push({month: lastDate, country: d.country, value: d.value});
+        total++;
+      }else{
+        total++;
+        lastDate = d.date.getMonth();
+        list.push({month: d.date.getMonth(), country: d.country, value: d.value});
+      }
+    });
+    list.forEach((d) => {
+      d.monthName = MONTHS[(d.month)%12];
+    });
+    return list;
+  }
+  function daysInMonth(anyDateInMonth) {
+    return new Date(anyDateInMonth.getYear(),
+                    anyDateInMonth.getMonth()+1,
+                    0).getDate();}
+
+    Date.prototype.dayOfYear= function(){
+      var j1= new Date(this);
+      j1.setMonth(0, 0);
+      return Math.round((this-j1)/8.64e7);
+  }
+  function linearMax(date){
+      return REV_MONTH_MAX*(date.dayOfYear()/366);
+  }
+  function linearMin(date){
+    return REV_MONTH_MIN*(date.dayOfYear()/366);
+  }
+
+  function parseChartData(data){
+
+    let lastDate = data[0].date.getTime();
+    let lastPrice =0;
+    let lastBilled =0;
+
+    let total =0;
+    var list = [];
+    console.log('Sorted Data', data);
+    list.push({date: data[0].date,
+      value: 0, billed: 0,
+      max: linearMax(data[0].date),
+      min: linearMin(data[0].date)});
+    data.forEach((d) => {
+      lastPrice += d.value;
+      lastBilled += d.billed;
+
+      if ( lastDate === d.date.getTime()){
+        list[total].value = lastPrice;
+        list[total].billed = lastBilled;
+      }else{
+        total++;
+        lastDate = d.date.getTime();
+        list.push({date: d.date,
+          value: lastPrice, billed: lastBilled,
+          max: linearMax(d.date),
+          min: linearMin(d.date)});
+      }
+    });
+    return list;
+  }
+  function uniqBy(a) {
+    let seen = {};
+    return a.filter(function(item) {
+        return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+    });
+    return seen;
+  }
+
+  function parseData(filename) {
+    var parseTime = d3.timeParse("%d.%m.%y");
+    //  Cast must be in format:   date,country,value,billed
+    return new Promise((resolve) => {
+      var total =0;
+      d3.csv(filename, function(d) {
+        //  Parse date and transform value to number
+        d.date = parseTime(d.date);
+        d.value = +d.value;
+        d.billed = +d.billed;
+        total += d.value;
+        return d;
+      }, function(error, data) {
+        data.sort((a,b) => {
+          return a.date.getTime()-b.date.getTime();
+        });
+        //  Raw data has format
+        //  01-Jan-17,CH,1500,1500
+        //  01-Jan-17,DE,1200,1200
+        parsedData.rawData = data;
+        //  Bars data is summed up by months and country
+        parsedData.barData = parseBarData(data);
+        //  Chart data is summed up by value, country ignored
+        parsedData.chartData = parseChartData(data);
+
+        parsedData.countries = uniqBy(parsedData.barData.map(function(d){return d.country;}));
+        parsedData.months = uniqBy(parsedData.barData.map(function(d){return +d.month;})).sort((a,b) => a-b);
+        parsedData.rawValues = uniqBy(parsedData.barData.map(function(d){return +d.value;}));
+
+        parsedData.n = parsedData.countries.length; // The number of series.
+        parsedData.m = parsedData.months.length; // The number of values per series.
+
+        parsedData.colorMap = d3.scaleOrdinal().domain(d3.range(20)).range(getColorMap());
+
+        parsedData.total = total;
+        resolve(parsedData);
+      });
+    });
+
+  }
+
+  parseData('rawData.csv').then((pd) => {
+    console.log('Parsed Data',  pd);
+    drawBars();
+    drawBubbles();
+    drawChart();
+
+  });
+
+</script>
+
+
+<script>
+
+</script>

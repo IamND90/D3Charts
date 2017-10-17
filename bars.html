@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+form {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  position: absolute;
+  left: 10px;
+  top: 10px;
+}
+
+label {
+  display: block;
+}
+
+</style>
+<form>
+  <label><input type="radio" name="mode" value="grouped"> Grouped</label>
+  <label><input type="radio" name="mode" value="stacked" checked> Stacked</label>
+</form>
+<svg width="960" height="500"></svg>
+<script src="d3.js"></script>
+<script>
+
+//GLOBAL
+var xValues;
+var yValues;
+var n;
+var m;
+
+var svg, margin;
+var color;
+var series;
+var rect;
+var yMax, y1Max;
+var height, width;
+
+function uniqBy(a) {
+  var seen = {};
+  return a.filter(function(item) {
+      return seen.hasOwnProperty(item) ? false : (seen[item] = true);
+  });
+  return seen;
+}
+
+function dataRangeFor( data,cntr){
+  var values = [];
+  data.forEach(function(d) {
+    if(d.country === cntr ){
+      values.push(d.value);
+    }
+  });
+
+  return values;
+}
+
+function calculateViewPort(max) {
+  margin = {top: 40, right: 10, bottom: 20, left: 10};
+  width = +svg.attr("width") - margin.left - margin.right;
+  height = +svg.attr("height") - margin.top - margin.bottom;
+  yValues = d3.scaleLinear()
+      .domain([0, max])
+      .range([height, 0]);
+}
+
+d3.csv("TableData.csv", function(error, data) {
+
+  var countries = uniqBy(data.map(function(d){return d.country;}));
+  var months = uniqBy(data.map(function(d){return d.month;}));
+  var rawValues = uniqBy(data.map(function(d){return +d.value;}));
+
+  n =countries.length; // The number of series.
+  m = months.length; // The number of values per series.
+  console.log( n, m);
+
+  // The xz array has m elements, representing the x-values shared by all series.
+  // The yz array has n elements, representing the y-values of each of the n series.
+  // Each yz[i] is an array of m non-negative numbers representing a y-value for xz[i].
+  // The y01z array has the same structure as yz, but with stacked [y₀, y₁] instead of y.
+  var rangeY = d3.range(n);
+  var index = 0;
+  var xz = d3.range(m),
+      yz = d3.range(n).map(function(d) { return dataRangeFor(data,countries[index++]); }),
+      y01z = d3.stack().keys(d3.range(n))(d3.transpose(yz));
+
+  var stack = d3.stack().keys(rangeY)(d3.transpose(yz));
+  yMax = d3.max(yz, function(y1) { return d3.max(rawValues); });
+  y1Max = d3.max(y01z, function(y1) { return d3.max(y1, function(d) { return d[1]; }); });
+
+  svg = d3.select("svg");
+  calculateViewPort(y1Max);
+  var g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  xValues = d3.scaleBand()
+      .domain(xz)
+      .rangeRound([0, width])
+      .padding(0.08);
+
+
+
+  color = d3.scaleOrdinal()
+      .domain(d3.range(n))
+      .range(d3.schemeCategory20c);
+
+  series = g.selectAll(".series")
+    .data(y01z)
+    .enter().append("g")
+      .attr("fill", function(d, i) { return color(i); });
+
+  rect = series.selectAll("rect")
+    .data(function(d) { return d; })
+    .enter().append("rect")
+      .attr("x", function(d, i) { return xValues(i); })
+      .attr("y", height)
+      .attr("width", xValues.bandwidth())
+      .attr("height", 0);
+
+  rect.transition()
+      .delay(function(d, i) { return i * 10; })
+      .attr("y", function(d) { return yValues(d[1]); })
+      .attr("height", function(d) { return yValues(d[0]) - yValues(d[1]); });
+
+  g.append("g")
+      .attr("class", "axis axis--x")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(xValues)
+          .tickSize(0)
+          .tickPadding(6));
+
+  d3.selectAll("input")
+      .on("change", changed);
+
+});
+
+
+var timeout = d3.timeout(function() {
+  d3.select("input[value=\"grouped\"]")
+      .property("checked", true)
+      .dispatch("change");
+}, 2000);
+
+function changed() {
+  timeout.stop();
+  if (this.value === "grouped") transitionGrouped();
+  else transitionStacked();
+}
+
+function transitionGrouped() {
+  calculateViewPort(yMax);
+  yValues.domain([0, yMax]);
+
+  rect.transition()
+      .duration(500)
+      .delay(function(d, i) { return i * 10; })
+      .attr("x", function(d, i) { return xValues(i) + xValues.bandwidth() / n * this.parentNode.__data__.key; })
+      .attr("width", xValues.bandwidth() / n)
+    .transition()
+      .attr("y", function(d) { return yValues(d[1] - d[0]); })
+      .attr("height", function(d) { return yValues(0) - yValues(d[1] - d[0]); });
+}
+
+function transitionStacked() {
+  calculateViewPort(y1Max);
+  rect.transition()
+      .duration(500)
+      .delay(function(d, i) { return i * 10; })
+      .attr("y", function(d) { return yValues(d[1]); })
+      .attr("height", function(d) { return yValues(d[0]) - yValues(d[1]); })
+    .transition()
+      .attr("x", function(d, i) { return xValues(i); })
+      .attr("width", xValues.bandwidth());
+}
+
+</script>
