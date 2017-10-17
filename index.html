@@ -20,7 +20,7 @@
       margin-top: 80px;
   }
   #colors, #tableType {
-      margin-left: 980px;
+      margin-left: 1480px;
   }
   div {
     display: flex;
@@ -28,22 +28,22 @@
 
   .TableData {
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 50px;
+    left: 500px;
     height: 600px;
   }
 
   .BubbleData {
     position: absolute;
-    top: 500px;
+    top: 50px;
     left: 0;
     height: 600px;
   }
 
   .ChartData {
     position: absolute;
-    top: 500px;
-    left: 500px;
+    top: 700px;
+    left: 50px;
     height: 600px;
   }
 
@@ -66,15 +66,14 @@
   </form>
 </div>
 
-
-<div class="TableData">
-  <svg id="svgBars" width="960" height="500"></svg>
-</div>
 <div class="BubbleData">
   <svg id="svgBubbles" width="500" height="500"></svg>
 </div>
+<div class="TableData">
+  <svg id="svgBars" width="960" height="500"></svg>
+</div>
 <div class="ChartData">
-  <svg id="svgChart" width="960" height="500"></svg>
+  <svg id="svgChart" width="1400" height="700"></svg>
 </div>
 
 <script src="d3bars.js"></script>
@@ -83,6 +82,17 @@
 
 <script>
   const MONTHS = ["Januar", "Februar", "März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  const SHEMA = {
+    Bright: ["#d62728", "#ff9896", "#9467bd", "#c5b0d5", "#8c564b", "#c49c94"],
+    Dark: ["#438033", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c", "#98df8a", "#d62728", "#ff9896", "#9467bd", "#c5b0d5", "#8c564b", "#c49c94", "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7", "#bcbd22"],
+    Chart: ["#c5b0d5", "#ff7f0e", "#484", "#a88","#844"],
+  };
+  const TEXTREPLACE = {
+    value: 'Soll',
+    billed: 'Gezhalt',
+    max: 'Erwartet',
+    min: 'Minimum',
+  }
   const REV_MONTH_MIN = 14000;
   const REV_MONTH_MAX = 26000;
 
@@ -185,7 +195,6 @@
 
     let total =0;
     var list = [];
-    console.log('Sorted Data', data);
     list.push({date: data[0].date,
       value: 0, billed: 0,
       max: linearMax(data[0].date),
@@ -249,6 +258,7 @@
         parsedData.m = parsedData.months.length; // The number of values per series.
 
         parsedData.colorMap = d3.scaleOrdinal().domain(d3.range(20)).range(getColorMap());
+        parsedData.colorMapChart = d3.scaleOrdinal().domain(d3.range(20)).range(SHEMA.Chart);
 
         parsedData.total = total;
         resolve(parsedData);

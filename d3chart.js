@@ -1,7 +1,10 @@
 
 function drawChart() {
-  var svg = d3.select("#svgChart"),
-      g = svg.append("g").attr("transform", "translate(" + marginBars.left + "," + 0 + ")");
+  var svg = d3.select("#svgChart");
+  svg.selectAll("text").remove();
+  svg.selectAll("g").remove();
+
+  var g = svg.append("g").attr("transform", "translate(" + marginBars.left + "," + 0 + ")");
   var widthC = +svg.attr("width") - marginBars.left - marginBars.right;
   var heightC = +svg.attr("height") - marginBars.top - marginBars.bottom;
 
@@ -46,9 +49,8 @@ function drawChart() {
 
     //  key[0] is date
     //  key[1+] ar chartvalues
-    var chartLines = [];
-    for ( let i = 1; i < keys.length ; i++ ) {
-      var key = keys[i];
+    for ( let index = 1; index < keys.length ; index++ ) {
+      var key = keys[index];
       let chartData = parsedData.chartData.map(function(d) {
         return ({date: d.date, value: d[key]});
       });
@@ -60,14 +62,11 @@ function drawChart() {
         return d.value;
       });
 
-      console.log('Before', chartData);
-      // Scale the range of the data
-
       var relData = chartData.map((d) => {
         var c = (max-min)/(absMax-absMin)* d.value + min;
-        return {date: d.date, value: c};
+        return {date: d.date, value: c, color: SHEMA.Chart[index]};
       });
-      console.log('After', relData);
+
       var line = d3.line()
       .x(function(d) { return x(d.date); })
       .y(function(d) { return y(d.value); });
@@ -75,22 +74,25 @@ function drawChart() {
       //x.domain(d3.extent(chartData, function(d) { return d.date; }));
       y.domain(d3.extent(chartData, function(d) { return d.value; }));
 
+      console.log(index);
       g.append("path")
           .datum(relData)
           .attr("fill", "none")
-          .attr("stroke", function() { return parsedData.colorMap(i-1); })
+          .attr("stroke", SHEMA.Chart[index-1])
           .attr("stroke-linejoin", "round")
           .attr("stroke-linecap", "round")
           .attr("stroke-width", 1.5)
           .attr("d", line);
 
+
       g.append("text")
-      .text( function (d) { return key; })
+      .text( function () { return TEXTREPLACE[key]; })
       .attr("x", 20)
-      .attr("y", () => {return 50+ 18*i;})
+      .attr("y", () => {return 50+ 18*index;})
       .attr("font-family", "sans-serif")
       .attr("font-size", "18px")
-      .attr("fill", function (d) { return parsedData.colorMap(i-1); });
+      .attr("fill", SHEMA.Chart[index-1]);
+
     }
 
 

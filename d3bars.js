@@ -56,7 +56,7 @@ function createYAxis(type) {
       maxInMonths.push({value: totalInM, color: 'black'});
     }else {
       if( monthMax >= maxOverAll) maxOverAll = monthMax;
-      maxInMonths.push({value: monthMax, color: 'blue' });
+      maxInMonths.push({value: monthMax, color: 'black' });
     }
   });
 
@@ -71,8 +71,9 @@ function createYAxis(type) {
     v.month = MONTHS[m];
   });
 
+  d3.select("#svgBars").selectAll("text").remove();
+
   let texts = d3.select("#svgBars").selectAll("text");
-  texts.remove();
 
   texts
   .data(maxInMonths)
@@ -119,6 +120,36 @@ function createNames(svg){
 
 }
 
+function createRectangles(xz,yz, y01z){
+
+  let g = svg.append("g").attr("transform", "translate(" + marginBars.left + "," + marginBars.top + ")");
+
+  xValues = d3.scaleBand()
+      .domain(xz)
+      .rangeRound([0, width])
+      .padding(0.08);
+
+  series = g.selectAll(".series")
+    .data(y01z)
+    .enter().append("g")
+      .attr("fill", function(d, i) { return parsedData.colorMap(i); });
+
+
+  rect = series.selectAll("rect")
+    .data(function(d) { return d; })
+    .enter().append("rect")
+      .attr("x", function(d, i) { return xValues(i); })
+      .attr("y", height)
+      .attr("width", xValues.bandwidth())
+      .attr("height", 0);
+
+  rect.transition()
+      .delay(function(d, i) { return i * 20; })
+      .attr("y", function(d) { return yValues(d[1]); })
+      .attr("height", function(d) { return yValues(d[0]) - yValues(d[1]); });
+
+}
+
 function drawBars() {
 
     console.log('Draw Bars', parsedData);
@@ -142,36 +173,10 @@ function drawBars() {
     yMin = d3.min(yz, function(y1) { return d3.min(parsedData.rawValues); });
     y1Min = d3.min(y01z, function(y1) { return d3.min(y1, function(d) { return d[1]; }); });
 
-
     calculateViewPort(y1Max);
     createYAxis('stacked');
-    createNames(svg);
-
-    let g = svg.append("g").attr("transform", "translate(" + marginBars.left + "," + marginBars.top + ")");
-
-    xValues = d3.scaleBand()
-        .domain(xz)
-        .rangeRound([0, width])
-        .padding(0.08);
-
-    series = g.selectAll(".series")
-      .data(y01z)
-      .enter().append("g")
-        .attr("fill", function(d, i) { return parsedData.colorMap(i); });
-
-
-    rect = series.selectAll("rect")
-      .data(function(d) { return d; })
-      .enter().append("rect")
-        .attr("x", function(d, i) { return xValues(i); })
-        .attr("y", height)
-        .attr("width", xValues.bandwidth())
-        .attr("height", 0);
-
-    rect.transition()
-        .delay(function(d, i) { return i * 20; })
-        .attr("y", function(d) { return yValues(d[1]); })
-        .attr("height", function(d) { return yValues(d[0]) - yValues(d[1]); });
+    //createNames(svg);
+    createRectangles(xz,yz, y01z);
 
     d3.selectAll("input")
         .on("change", changed);
@@ -183,6 +188,7 @@ function drawBars() {
 function transitionGrouped() {
   calculateViewPort(yMax);
   createYAxis('grouped');
+  //createNames(svg);
   yValues.domain([0, yMax]);
 
   rect.transition()
@@ -198,6 +204,7 @@ function transitionGrouped() {
 function transitionStacked() {
   calculateViewPort(y1Max);
   createYAxis('stacked');
+  //createNames(svg);
   rect.transition()
       .duration(500)
       .delay(function(d, i) { return i * 10; })
